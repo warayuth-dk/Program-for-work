@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>UrineScan Pro — ปตอ.2 พัน.2</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+Thai:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+<style>
+  :root {
+    --bg: #0a1018; --surface: #161c24; --border: #2d3846;
+    --accent: #00d4ff; --accent2: #00ff9d; --text: #e2eaf4; --muted: #6b7c93; 
+    --warn: #ffcc00; --danger: #ff4444; --success: #00ff9d;
+  }
+  
+  * { 
+    box-sizing: border-box; margin: 0; padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
+  }
+  
+  body { 
+    background: var(--bg); color: var(--text); 
+    font-family: 'Noto Sans Thai', sans-serif; 
+    padding: 10px; overflow-x: hidden; min-height: 100vh;
+  }
+  
+  .container { max-width: 500px; margin: 0 auto; }
+  
+  header { 
+    display: flex; justify-content: space-between; align-items: center; 
+    padding: 8px 0 15px; margin-bottom: 5px;
+  }
+  
+  .logo-text { 
+    font-family: 'Space Mono', monospace; font-size: 18px; 
+    color: var(--accent); font-weight: bold; letter-spacing: 0.5px;
+  }
+  
+  .header-time { text-align: right; font-family: 'Space Mono'; font-size: 10px; }
+  .current-date { color: var(--accent); font-weight: 600; }
+
+  .card { 
+    background: var(--surface); border: 1px solid var(--border); 
+    border-radius: 16px; padding: 16px; margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  
+  .viewfinder { 
+    position: relative; width: 100%; aspect-ratio: 1 / 1; 
+    background: #000; border-radius: 12px; overflow: hidden; 
+    border: 2px solid var(--border); margin: 0 auto; max-width: 450px;
+  }
+
+  video {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; object-fit: cover;
+    z-index: 1; display: block;
+  }
+
+  canvas { 
+    position: absolute; top: 0; left: 0; 
+    width: 100%; height: 100%; 
+    object-fit: cover; pointer-events: none;
+    z-index: 5; opacity: 1; display: none;
+  }
+
+  .photo-preview-wrap { 
+    width: 100%; aspect-ratio: 1 / 1; background: #000; 
+    border-radius: 12px; overflow: hidden; display: none; 
+    margin-bottom: 10px; border: 2px solid var(--border);
+  }
+  
+  .photo-preview-wrap.show { 
+    display: block; border-color: var(--accent2);
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 10px var(--accent2); }
+    50% { box-shadow: 0 0 20px var(--accent2); }
+  }
+  
+  #photoSnapshot { width: 100%; height: 100%; object-fit: cover; }
+
+  .bottle-guide { 
+    position: absolute; top: 50%; left: 50%; 
+    transform: translate(-50%, -50%); 
+    width: 38%; height: 58%; 
+    border: 3px dashed var(--accent2); 
+    border-radius: 15px; pointer-events: none; 
+    display: none; z-index: 10;
+    animation: guideAnimation 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes guideAnimation {
+    0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 1; transform: translate(-50%, -50%) scale(1.02); }
+  }
+  
+  .bottle-guide.show { display: block; }
+  
+  .guide-text {
+    position: absolute; top: -32px; left: 50%;
+    transform: translateX(-50%); background: var(--accent2);
+    color: #000; padding: 5px 12px; border-radius: 6px;
+    font-size: 11px; font-weight: bold; white-space: nowrap;
+  }
+
+  .sample-point {
+    position: absolute;
+    width: 24px; height: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    border-radius: 50%; z-index: 11; display: none;
+    box-shadow: 0 0 10px rgba(0, 255, 157, 0.8);
+  }
+  
+  .sample-point::before {
+    content: ''; position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 6px; height: 6px; background: white;
+    border-radius: 50%;
+  }
+  
+  .sample-point.urine {
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+  }
+  
+  .sample-point.white {
+    top: calc(50% - 150px); left: calc(50% + 120px);
+    transform: translate(-50%, -50%);
+    border-color: rgba(255, 204, 0, 0.9);
+    box-shadow: 0 0 10px rgba(255, 204, 0, 0.8);
+  }
+  
+  .sample-point.white::before {
+    background: #ffcc00;
+  }
+  
+  .bottle-guide.show ~ .sample-point { display: block; }
+  
+  .point-label {
+    position: absolute; top: -22px; left: 50%;
+    transform: translateX(-50%); background: rgba(0, 0, 0, 0.7);
+    color: white; padding: 2px 6px; border-radius: 4px;
+    font-size: 9px; font-weight: bold; white-space: nowrap;
+  }
+
+  .status-tag { 
+    display: inline-block; padding: 6px 12px; 
+    border-radius: 8px; font-size: 11px; font-weight: bold; 
+    margin-bottom: 12px; background: var(--border); color: var(--muted);
+    transition: all 0.3s ease;
+  }
+  
+  .status-tag.active { 
+    background: var(--accent); color: #000;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+  }
+
+  .input-field { 
+    width: 100%; background: #0d1117; 
+    border: 2px solid var(--border); color: #fff; 
+    padding: 16px; border-radius: 10px; 
+    font-size: 28px; font-weight: bold; 
+    text-align: center; font-family: 'Space Mono';
+    -webkit-appearance: none; transition: border-color 0.3s ease;
+  }
+  
+  .input-field:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+  }
+
+  .btn { 
+    width: 100%; padding: 18px; border-radius: 12px; 
+    border: none; font-weight: bold; cursor: pointer; 
+    font-size: 16px; display: flex; align-items: center; 
+    justify-content: center; gap: 8px; margin-top: 8px;
+    transition: all 0.2s ease; font-family: 'Noto Sans Thai', sans-serif;
+  }
+  
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-snap { background: var(--warn); color: #000; display: none; }
+  .btn-flash { background: #444; color: #fff; display: none; font-size: 14px; padding: 12px; }
+  .btn-flash.active { background: var(--warn); color: #000; }
+  .btn-save { 
+    background: linear-gradient(135deg, var(--accent2), #00cc7a);
+    color: #000; display: none; margin-top: 15px; font-size: 17px;
+  }
+  .btn-reset { background: #333; color: #fff; display: none; }
+  
+  .btn:disabled {
+    opacity: 0.5; cursor: not-allowed;
+  }
+
+  .info-section {
+    border-left: 4px solid var(--accent); 
+    padding-left: 14px; margin-bottom: 16px;
+  }
+  
+  .info-label {
+    font-size: 10px; color: var(--muted); 
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+  }
+  
+  .info-value {
+    font-size: 18px; color: var(--accent); font-weight: 700;
+    line-height: 1.4;
+  }
+
+  #colorResult {
+    min-height: 60px; border-radius: 10px; 
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; 
+    background: #222; border: 2px solid var(--border); 
+    font-weight: bold; padding: 8px;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .temp-area {
+    margin-top: 16px; opacity: 0.3; pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+  
+  .temp-area.active { opacity: 1; pointer-events: all; }
+  
+  .temp-label {
+    font-size: 11px; font-weight: bold; 
+    color: var(--accent2); margin-bottom: 6px;
+  }
+
+  .sync-status {
+    font-size: 11px; text-align: center; 
+    margin-top: 10px; color: var(--muted); 
+    font-family: 'Space Mono'; min-height: 18px;
+  }
+  
+  .sync-status.success { color: var(--success); }
+  .sync-status.error { color: var(--danger); }
+
+  .history-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .history-title {
+    font-size: 12px; font-weight: bold; 
+    color: var(--accent); margin-bottom: 12px;
+    font-family: 'Space Mono';
+  }
+  
+  table { 
+    width: 100%; border-collapse: collapse; 
+    font-size: 11px; min-width: 550px; 
+  }
+  
+  th { 
+    padding: 10px 8px; text-align: left; 
+    border-bottom: 2px solid var(--border);
+    color: var(--accent); font-weight: 600; 
+    font-size: 10px; text-transform: uppercase;
+  }
+  
+  td { 
+    padding: 10px 6px; text-align: left; 
+    border-bottom: 1px solid var(--border); 
+  }
+  
+  tbody tr { transition: background 0.2s ease; }
+  tbody tr:hover { background: rgba(0, 212, 255, 0.05); }
+  
+  .level-badge {
+    padding: 3px 8px; border-radius: 5px; 
+    font-weight: bold; font-size: 11px; display: inline-block;
+  }
+
+  #instructionOverlay { 
+    position: absolute; inset: 0; 
+    background: rgba(0,0,0,0.95); 
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center; 
+    z-index: 20; padding: 20px;
+  }
+  
+  .overlay-icon {
+    font-size: 48px; margin-bottom: 16px;
+    animation: bounce 1s ease-in-out infinite;
+  }
+  
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .overlay-text {
+    color: var(--accent); font-size: 13px;
+    margin-bottom: 20px; text-align: center; max-width: 280px;
+  }
+
+  .spinner {
+    border: 3px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 50%; width: 24px; height: 24px;
+    animation: spin 1s linear infinite;
+    display: none; margin: 10px auto 0;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  .error-message {
+    background: rgba(255, 68, 68, 0.1);
+    border: 1px solid var(--danger);
+    border-radius: 8px; padding: 12px;
+    margin-top: 10px; color: var(--danger);
+    font-size: 12px; display: none;
+  }
+  
+  .error-message.show { display: block; }
+
+  .info-note {
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid var(--accent);
+    border-radius: 8px; padding: 10px;
+    margin-top: 10px; color: var(--accent);
+    font-size: 11px; line-height: 1.5;
+  }
+
+  @media (max-width: 380px) {
+    .logo-text { font-size: 16px; }
+    .card { padding: 14px; }
+    .input-field { font-size: 24px; padding: 14px; }
+    .btn { padding: 16px; font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo-text">🔬 ปตอ.2 พัน.2</div>
+    <div class="header-time">
+        <div id="currentDate" class="current-date">-- -- ----</div>
+        <div id="clock" class="clock">00:00:00</div>
+    </div>
+  </header>
+
+  <div class="card">
+    <div id="stepTag" class="status-tag">STEP 1: SCAN QR CODE</div>
+    
+    <div class="viewfinder" id="vFrame">
+      <video id="video" playsinline webkit-playsinline autoplay muted></video>
+      <canvas id="canvas"></canvas>
+      <div class="bottle-guide" id="bottleGuide">
+        <div class="guide-text">วางขวดในกรอบนี้</div>
+      </div>
+      <div class="sample-point urine">
+        <div class="point-label">ปัสสาวะ</div>
+      </div>
+      <div class="sample-point white">
+        <div class="point-label">พื้นขาว</div>
+      </div>
+      <div id="instructionOverlay">
+          <div class="overlay-icon">📱</div>
+          <div class="overlay-text">กดเพื่อเปิดกล้องและสแกน QR Code</div>
+          <button class="btn btn-primary" onclick="initCamera()">
+            <span>🎥</span>
+            <span>เปิดกล้อง</span>
+          </button>
+      </div>
+    </div>
+    
+    <div class="photo-preview-wrap" id="photoWrap">
+      <img id="photoSnapshot" src="" alt="Captured Photo">
+    </div>
+
+    <div class="info-note" style="font-size: 10px;">
+      💡 <strong>วิธีใช้:</strong> วางขวดบนกระดาษ A4 สีขาว → กดถ่ายรูป → ระบบวิเคราะห์สีอัตโนมัติ
+    </div>
+
+    <button class="btn btn-flash" id="btnFlash" onclick="toggleFlash()">
+      <span>💡</span>
+      <span>เปิดแฟลช</span>
+    </button>
+
+    <button class="btn btn-snap" id="btnSnap" onclick="takePhoto()">
+      <span>📸</span>
+      <span>ถ่ายภาพขวดปัสสาวะ</span>
+    </button>
+    
+    <button class="btn btn-reset" id="btnReset" onclick="resetApp()">
+      <span>↺</span>
+      <span>ยกเลิก / สแกนใหม่</span>
+    </button>
+    
+    <div class="error-message" id="errorMessage"></div>
+  </div>
+
+  <div class="card">
+    <div class="info-section">
+      <p class="info-label">ข้อมูลทหาร:</p>
+      <div id="displayUserName" class="info-value">รอสแกน QR CODE...</div>
+    </div>
+
+    <div id="colorResult">สี: --</div>
+
+    <div id="tempArea" class="temp-area">
+      <p class="temp-label">📊 อุณหภูมิร่างกาย (°C):</p>
+      <input type="number" id="bodyTemp" class="input-field" 
+             placeholder="36.5" step="0.1" min="35" max="42" inputmode="decimal">
+    </div>
+
+    <button class="btn btn-save" id="btnSave" onclick="confirmSave()">
+      <span>💾</span>
+      <span>บันทึกและส่งข้อมูล</span>
+    </button>
+    
+    <div class="spinner" id="syncSpinner"></div>
+    <div id="syncStatus" class="sync-status"></div>
+  </div>
+
+  <div class="card history-section">
+    <p class="history-title">📋 RECENT LOGS (TOP 5)</p>
+    <table>
+      <thead>
+        <tr><th>วันที่</th><th>เวลา</th><th>เลขที่</th><th>ชื่อ</th><th>อุณหภูมิ</th><th>ระดับ</th></tr>
+      </thead>
+      <tbody id="historyBody">
+        <tr><td colspan="6" style="text-align:center; color:var(--muted)">ไม่มีข้อมูล</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+// ================= CONFIG =================
+const CONFIG_SHEET_URL = 'https://script.google.com/macros/s/AKfycbyfujc5A_qjCti6nH_AILuOJbPW7oIpAhC3zNeOXVpl01Jn0RL5X2T5a8tyXunmTtoj/exec'; 
+
+// ================= DOM =================
+const video = document.getElementById("video");
+const canvasElement = document.getElementById("canvas");
+const canvas = canvasElement.getContext("2d", { alpha: false, willReadFrequently: true });
+
+// ================= DATA =================
+const LEVELS = [
+  { lv: 0, name: "ใสหรือจาง", color: "#F0F8FF", textColor: "#000", description: "ลดน้ำลงนิดหน่อย" },
+  { lv: 1, name: "เหลืองอ่อน", color: "#FEEFC6", textColor: "#000", description: "ปกติ (ดี)" },
+  { lv: 2, name: "เหลืองส้ม", color: "#FFB347", textColor: "#000", description: "ดื่มน้ำเพิ่มขึ้นนิดหน่อย" },
+  { lv: 3, name: "เหลืองเข้ม/น้ำตาล", color: "#CD853F", textColor: "#fff", description: "ควรดื่มน้ำบ่อยๆ" },
+  { lv: 4, name: "น้ำตาลเข้ม", color: "#8B4513", textColor: "#fff", description: "อันตราย!" }
+];
+
+// ================= STATE =================
+let state = "IDLE";
+let currentNumber = "";
+let currentName = "";
+let currentBuble = "";
+let currentLV = 0;
+let yellowIndexValue = 0;
+let historyData = JSON.parse(localStorage.getItem('urine_history_v2') || '[]');
+let cameraStream = null;
+let scanInterval = null;
+let isFlashOn = false;
+
+// ================= INIT =================
+document.addEventListener('DOMContentLoaded', () => {
+  renderHistory();
+  startClock();
+  autoStartCamera();
+});
+
+// ================= AUTO CAMERA =================
+async function autoStartCamera() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const hasCamera = devices.some(d => d.kind === 'videoinput');
+    if (!hasCamera) return;
+    await initCamera();
+  } catch (e) {
+    console.log("Auto camera blocked:", e);
+  }
+}
+
+// ================= CAMERA =================
+async function initCamera() {
+  try {
+    const constraints = {
+      video: {
+        facingMode: "environment",
+        width: { ideal: 720 },
+        height: { ideal: 720 }
+      }
+    };
+
+    cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = cameraStream;
+    await video.play();
+
+    document.getElementById("instructionOverlay").style.display = "none";
+
+    state = "SCAN_QR";
+    updateStepTag("STEP 1: SCAN QR CODE", true);
+
+    canvasElement.style.display = "none";
+
+    scanInterval = setInterval(scanQRCode, 400);
+
+  } catch(e) { 
+    showError("เปิดกล้องไม่ได้: " + e.message);
+  }
+}
+
+// ================= QR =================
+function scanQRCode() {
+  if (state !== "SCAN_QR" || video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+  const scanSize = 500;
+  canvasElement.width = scanSize;
+  canvasElement.height = scanSize;
+
+  const sx = (video.videoWidth - scanSize) / 2;
+  const sy = (video.videoHeight - scanSize) / 2;
+
+  canvas.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, scanSize, scanSize);
+
+  const imageData = canvas.getImageData(0, 0, scanSize, scanSize);
+  const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+  if (code) handleQRCodeDetected(code.data);
+}
+
+function handleQRCodeDetected(qrData) {
+  try {
+    const url = new URL(qrData);
+    console.log("QR RAW:", qrData);
+
+    currentNumber = url.searchParams.get('Number') || "-";
+    currentName = url.searchParams.get('name') || "Unknown";
+    currentBuble = url.searchParams.get('Buble') || "-";
+
+    console.log("Number =", currentNumber);
+    console.log("name =", currentName);
+    console.log("Buble =", currentBuble);
+
+    document.getElementById("displayUserName").innerHTML = `
+      เลขที่: <strong>${currentNumber}</strong><br>
+      ชื่อ: <strong>${currentName}</strong><br>
+      Buble: <strong>${currentBuble}</strong>
+    `;
+
+    clearInterval(scanInterval);
+    scanInterval = null;
+
+    state = "READY_TO_SNAP";
+
+    updateStepTag("STEP 2: SNAP BOTTLE", true);
+
+    document.getElementById("btnSnap").style.display = "flex";
+    document.getElementById("btnFlash").style.display = "flex";
+    document.getElementById("btnReset").style.display = "flex";
+    document.getElementById("bottleGuide").classList.add("show");
+
+  } catch {
+    showError("QR ไม่ถูกต้อง");
+  }
+}
+
+// ================= FLASH =================
+async function toggleFlash() {
+  if (!cameraStream) return;
+  
+  const track = cameraStream.getVideoTracks()[0];
+  
+  try {
+    const capabilities = track.getCapabilities();
+    if (!capabilities.torch) {
+      alert("อุปกรณ์หรือเบราว์เซอร์นี้ไม่รองรับการเปิดแฟลช");
+      return;
+    }
+
+    isFlashOn = !isFlashOn;
+    await track.applyConstraints({
+      advanced: [{ torch: isFlashOn }]
+    });
+
+    const btn = document.getElementById("btnFlash");
+    if (isFlashOn) {
+      btn.classList.add("active");
+      btn.innerHTML = `<span>🔦</span> <span>ปิดแฟลช</span>`;
+    } else {
+      btn.classList.remove("active");
+      btn.innerHTML = `<span>💡</span> <span>เปิดแฟลช</span>`;
+    }
+  } catch (e) {
+    console.error("Flash Error: ", e);
+    alert("ไม่สามารถเปิดแฟลชได้ในโหมดนี้");
+  }
+}
+
+// ================= SNAP & ANALYZE =================
+function takePhoto() {
+  // ปิดแฟลชก่อนถ่ายรูป
+  if (isFlashOn) toggleFlash();
+  
+  // วาดภาพจากวิดีโอลง Canvas
+  canvasElement.width = video.videoWidth;
+  canvasElement.height = video.videoHeight;
+  canvas.drawImage(video, 0, 0);
+  
+  // บันทึกภาพ
+  const photoData = canvasElement.toDataURL('image/jpeg', 0.85);
+  document.getElementById("photoSnapshot").src = photoData;
+  
+  // ซ่อนกล้อง แสดงภาพ
+  document.getElementById("vFrame").style.display = "none";
+  document.getElementById("photoWrap").classList.add("show");
+  document.getElementById("btnSnap").style.display = "none";
+  document.getElementById("btnFlash").style.display = "none";
+  
+  // หยุดกล้อง
+  if (cameraStream) {
+    cameraStream.getTracks().forEach(t => t.stop());
+    cameraStream = null;
+  }
+
+  state = "ANALYZING";
+  updateStepTag("กำลังวิเคราะห์สี...", true);
+
+  // 🎯 วิเคราะห์สีจากภาพที่ถ่าย
+  analyzeColorFromPhoto();
+}
+
+function analyzeColorFromPhoto() {
+  // ใช้ canvas ที่มีภาพอยู่แล้ว
+  const centerX = canvasElement.width / 2;
+  const centerY = canvasElement.height / 2;
+
+  // อ่านสี 2 จุด
+  const urineRGB = getAvgRGB(centerX, centerY, 20);
+  const whiteRGB = getAvgRGB(centerX + 120, centerY - 150, 20);
+
+  // คำนวณและแสดงผล
+  updateColorIndicator(urineRGB, whiteRGB);
+
+  // เปลี่ยนสถานะ
+  state = "COMPLETED";
+  updateStepTag("STEP 3: INPUT TEMP", true);
+
+  // เปิดให้กรอกอุณหภูมิ
+  document.getElementById("tempArea").classList.add("active");
+  document.getElementById("btnSave").style.display = "flex";
+  
+  setTimeout(() => {
+    document.getElementById("bodyTemp").focus();
+  }, 300);
+}
+
+// ================= COLOR ANALYSIS =================
+function getAvgRGB(x, y, size) {
+  const halfSize = size / 2;
+  const startX = Math.max(0, Math.floor(x - halfSize));
+  const startY = Math.max(0, Math.floor(y - halfSize));
+  const width = Math.min(size, canvasElement.width - startX);
+  const height = Math.min(size, canvasElement.height - startY);
+  
+  const data = canvas.getImageData(startX, startY, width, height).data;
+  let r = 0, g = 0, b = 0;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+  }
+  
+  const pixels = data.length / 4;
+  return [r / pixels, g / pixels, b / pixels];
+}
+
+function updateColorIndicator(urine, white) {
+  const urineBr = (0.299 * urine[0] + 0.587 * urine[1] + 0.114 * urine[2]);
+  const whiteBr = (0.299 * white[0] + 0.587 * white[1] + 0.114 * white[2]);
+
+  const whiteBlueRatio = white[2] / Math.max(white[0], 1);
+  const urineBlueRatio = urine[2] / Math.max(urine[0], 1);
+  const yellowIndex = whiteBlueRatio - urineBlueRatio;
+  
+  yellowIndexValue = yellowIndex;
+  
+  const brRatio = urineBr / Math.max(whiteBr, 1);
+
+  let lv = 1;
+  
+  if (yellowIndex < 0.12 && brRatio > 0.82) {
+    lv = 0;
+  } else if (yellowIndex < 0.28) {
+    lv = 1;
+  } else if (yellowIndex < 0.48) {
+    lv = 2;
+  } else if (yellowIndex < 0.68) {
+    lv = 3;
+  } else {
+    lv = 4;
+  }
+
+  currentLV = lv;
+
+  const box = document.getElementById("colorResult");
+  const levelInfo = LEVELS[lv];
+  
+  box.style.background = `rgb(${Math.round(urine[0])}, ${Math.round(urine[1])}, ${Math.round(urine[2])})`;
+  box.innerHTML = `
+    <div style="font-size:18px; font-weight:bold;">LV.${lv} - ${levelInfo.name}</div>
+    <div style="font-size:11px; opacity:0.8; margin-top:4px;">${levelInfo.description} | ความเข้มสีเหลือง: ${(yellowIndex * 100).toFixed(0)}%</div>
+  `;
+  box.style.color = urineBr > 140 ? "#000" : "#fff";
+}
+
+// ================= SAVE =================
+async function confirmSave() {
+  const temp = document.getElementById('bodyTemp').value;
+
+  if (!temp) return showError("กรอกอุณหภูมิ");
+  
+  if (temp < 35 || temp > 42) {
+    return showError("อุณหภูมิผิดปกติ! (ต้องอยู่ระหว่าง 35.0 - 42.0)");
+  }
+
+  const now = new Date();
+  const record = {
+    date: now.toLocaleDateString('th-TH'),
+    time: now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'}),
+    Number: currentNumber,
+    name: currentName,
+    buble: currentBuble,
+    temp,
+    level: currentLV,
+    status: LEVELS[currentLV].name,
+    yellowIndex: Math.round(yellowIndexValue * 100),
+    timestamp: now.toISOString()
+  };
+
+  historyData.unshift(record);
+  localStorage.setItem('urine_history_v2', JSON.stringify(historyData.slice(0, 20)));
+  renderHistory();
+
+  const btnSave = document.getElementById('btnSave');
+  btnSave.disabled = true;
+
+  const syncStatus = document.getElementById('syncStatus');
+  const spinner = document.getElementById('syncSpinner');
+
+  syncStatus.textContent = "⏳ กำลังส่งข้อมูล...";
+  spinner.style.display = "block";
+
+  try {
+    await fetch(CONFIG_SHEET_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record)
+    });
+
+    spinner.style.display = "none";
+    syncStatus.className = "sync-status success";
+    syncStatus.textContent = "✅ บันทึกสำเร็จ!";
+
+    setTimeout(resetApp, 1500);
+
+  } catch (e) {
+    spinner.style.display = "none";
+    syncStatus.className = "sync-status error";
+    syncStatus.textContent = "❌ ส่งข้อมูลไม่สำเร็จ";
+    btnSave.disabled = false;
+  }
+}
+
+// ================= RESET =================
+function resetApp() {
+  state = "IDLE";
+
+  document.getElementById("photoWrap").classList.remove("show");
+  document.getElementById("vFrame").style.display = "block";
+  document.getElementById("btnSnap").style.display = "none";
+  document.getElementById("btnFlash").style.display = "none";
+  document.getElementById("btnSave").style.display = "none";
+  document.getElementById("btnReset").style.display = "none";
+  document.getElementById("tempArea").classList.remove("active");
+
+  document.getElementById("bodyTemp").value = "";
+  document.getElementById("displayUserName").innerHTML = "รอสแกน QR CODE...";
+  document.getElementById("colorResult").innerHTML = "สี: --";
+
+  document.getElementById("bottleGuide").classList.remove("show");
+
+  updateStepTag("STEP 1: SCAN QR CODE", true);
+
+  initCamera();
+}
+
+// ================= UI =================
+function renderHistory() {
+  const body = document.getElementById("historyBody");
+  
+  if (historyData.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--muted); padding:20px;">ไม่มีข้อมูล</td></tr>';
+    return;
+  }
+  
+  body.innerHTML = historyData.slice(0, 5).map(r => {
+    const levelInfo = LEVELS[r.level];
+    return `
+      <tr>
+        <td style="font-size:10px">${r.date}</td>
+        <td style="font-family:'Space Mono'; font-size:10px">${r.time}</td>
+        <td><strong>${r.Number}</strong></td>
+        <td style="font-weight:bold">${r.name}</td>
+        <td style="color:var(--accent2); font-family:'Space Mono'">${r.temp}°</td>
+        <td>
+          <span class="level-badge" style="background:${levelInfo.color}; color:${levelInfo.textColor}">
+            LV.${r.level}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function updateStepTag(t, a) {
+  const el = document.getElementById('stepTag');
+  el.textContent = t;
+  el.classList.toggle('active', a);
+}
+
+function showError(m) {
+  const el = document.getElementById('errorMessage');
+  el.textContent = m;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function startClock() {
+  function updateTime() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('th-TH');
+    document.getElementById('currentDate').textContent = now.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+  
+  updateTime();
+  setInterval(updateTime, 1000);
+}
+</script>
+</body>
+</html>
